@@ -44,10 +44,12 @@ import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
 
+import com.google.common.collect.ImmutableSet;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.common.annotation.ImportantField;
 import org.apache.rocketmq.common.constant.LoggerName;
 import org.apache.rocketmq.common.help.FAQUrl;
+import org.apache.rocketmq.common.topic.TopicValidator;
 import org.apache.rocketmq.common.utils.IOTinyUtils;
 import org.apache.rocketmq.logging.org.slf4j.Logger;
 import org.apache.rocketmq.logging.org.slf4j.LoggerFactory;
@@ -99,8 +101,8 @@ public class MixAll {
     public static final String ACL_CONF_TOOLS_FILE = "/conf/tools.yml";
     public static final String REPLY_MESSAGE_FLAG = "reply";
     public static final String LMQ_PREFIX = "%LMQ%";
-    public static final long LMQ_QUEUE_ID = 0;
-    public static final String MULTI_DISPATCH_QUEUE_SPLITTER = ",";
+    public static final int LMQ_QUEUE_ID = 0;
+    public static final String LMQ_DISPATCH_SEPARATOR = ",";
     public static final String REQ_T = "ReqT";
     public static final String ROCKETMQ_ZONE_ENV = "ROCKETMQ_ZONE";
     public static final String ROCKETMQ_ZONE_PROPERTY = "rocketmq.zone";
@@ -118,6 +120,23 @@ public class MixAll {
     public static final String MULTI_PATH_SPLITTER = System.getProperty("rocketmq.broker.multiPathSplitter", ",");
 
     private static final String OS = System.getProperty("os.name").toLowerCase();
+
+    private static final Set<String> PREDEFINE_GROUP_SET = ImmutableSet.of(
+        DEFAULT_CONSUMER_GROUP,
+        DEFAULT_PRODUCER_GROUP,
+        TOOLS_CONSUMER_GROUP,
+        SCHEDULE_CONSUMER_GROUP,
+        FILTERSRV_CONSUMER_GROUP,
+        MONITOR_CONSUMER_GROUP,
+        CLIENT_INNER_PRODUCER_GROUP,
+        SELF_TEST_PRODUCER_GROUP,
+        SELF_TEST_CONSUMER_GROUP,
+        ONS_HTTP_PROXY_GROUP,
+        CID_ONSAPI_PERMISSION_GROUP,
+        CID_ONSAPI_OWNER_GROUP,
+        CID_ONSAPI_PULL_GROUP,
+        CID_SYS_RMQ_TRANS
+    );
 
     public static boolean isWindows() {
         return OS.contains("win");
@@ -157,6 +176,10 @@ public class MixAll {
 
     public static boolean isSysConsumerGroup(final String consumerGroup) {
         return consumerGroup.startsWith(CID_RMQ_SYS_PREFIX);
+    }
+
+    public static boolean isPredefinedGroup(final String consumerGroup) {
+        return PREDEFINE_GROUP_SET.contains(consumerGroup);
     }
 
     public static String getDLQTopic(final String consumerGroup) {
@@ -523,5 +546,11 @@ public class MixAll {
             return true;
         }
         return false;
+    }
+
+    public static boolean topicAllowsLMQ(String topic) {
+        return !topic.startsWith(MixAll.RETRY_GROUP_TOPIC_PREFIX)
+            && !topic.startsWith(TopicValidator.SYSTEM_TOPIC_PREFIX)
+            && !topic.equals(TopicValidator.RMQ_SYS_SCHEDULE_TOPIC);
     }
 }

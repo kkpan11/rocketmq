@@ -510,7 +510,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
         try {
             this.makeSureStateOK();
         } catch (MQClientException e) {
-            log.warn("pullMessage exception, consumer state not ok", e);
+            log.warn("popMessage exception, consumer state not ok", e);
             this.executePopPullRequestLater(popRequest, pullTimeDelayMillsWhenException);
             return;
         }
@@ -752,7 +752,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
 
     public void sendMessageBack(MessageExt msg, int delayLevel, final MessageQueue mq)
             throws RemotingException, MQBrokerException, InterruptedException, MQClientException {
-        sendMessageBack(msg, delayLevel, null, mq);
+        sendMessageBack(msg, delayLevel, msg.getBrokerName(), mq);
     }
 
 
@@ -767,6 +767,9 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
             } else {
                 String brokerAddr = (null != brokerName) ? this.mQClientFactory.findBrokerAddressInPublish(brokerName)
                     : RemotingHelper.parseSocketAddressAddr(msg.getStoreHost());
+                if (UtilAll.isBlank(brokerAddr)) {
+                    throw new MQClientException("Broker[" + brokerName + "] master node does not exist", null);
+                }
                 this.mQClientFactory.getMQClientAPIImpl().consumerSendMessageBack(brokerAddr, brokerName, msg,
                     this.defaultMQPushConsumer.getConsumerGroup(), delayLevel, 5000, getMaxReconsumeTimes());
             }
@@ -1006,10 +1009,16 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                 break;
         }
 
-        this.updateTopicSubscribeInfoWhenSubscriptionChanged();
-        this.mQClientFactory.checkClientInBroker();
-        if (this.mQClientFactory.sendHeartbeatToAllBrokerWithLock()) {
-            this.mQClientFactory.rebalanceImmediately();
+        try {
+            this.updateTopicSubscribeInfoWhenSubscriptionChanged();
+            this.mQClientFactory.checkClientInBroker();
+            if (this.mQClientFactory.sendHeartbeatToAllBrokerWithLock()) {
+                this.mQClientFactory.rebalanceImmediately();
+            }
+        } catch (Exception e) {
+            log.warn("Start the consumer {} fail.", this.defaultMQPushConsumer.getConsumerGroup(), e);
+            shutdown();
+            throw e;
         }
     }
 
